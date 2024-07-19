@@ -169,7 +169,7 @@ registerDownloadTask(
 // TODO: Remove in future
 registerDownloadTask(
     taskName = "downloadCompatKpatch",
-    srcUrl = "https://github.com/Admirepowered/KernelPatch/releases/download/0.10.7/kpatch-android",
+    srcUrl = "https://github.com/bmax121/KernelPatch/releases/download/0.10.7/kpatch-android",
     destPath = "${project.projectDir}/libs/arm64-v8a/libkpatch.so",
     project = project
 )
