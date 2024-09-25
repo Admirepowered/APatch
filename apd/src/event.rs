@@ -225,9 +225,9 @@ pub fn on_post_data_fs(superkey: Option<String>) -> Result<()> {
         warn!("load sepolicy.rule failed");
     }
 
-    if let Err(e) = mount::mount_tmpfs(utils::get_tmp_path()) {
-        warn!("do temp dir mount failed: {}", e);
-    }
+    //if let Err(e) = mount::mount_tmpfs(utils::get_tmp_path()) {
+    //    warn!("do temp dir mount failed: {}", e);
+    //}
 
     // exec modules post-fs-data scripts
     // TODO: Add timeout
