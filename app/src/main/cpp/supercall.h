@@ -179,9 +179,9 @@ static inline long sc_su_uid_nums(const char *key)
 }
 static inline jstring sc_su_get_ts(const char *key)
 {
-    if (!key || !key[0]) return -EINVAL;
-    jstring ret = syscall(__NR_supercall, key, compact_cmd(key, SUPERCALL_SU_GET_TS));
-    return ret;
+    if (!key || !key[0]) return NULL;
+    long ret = syscall(__NR_supercall, key, compact_cmd(key, SUPERCALL_SU_GET_TS));
+    return (jstring)ret; // 将 long 转换为 jstring
 }
 
 /**

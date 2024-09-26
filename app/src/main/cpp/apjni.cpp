@@ -95,14 +95,14 @@ extern "C" {
         return rc;
     }
 
-    JNIEXPORT jint JNICALL Java_me_bmax_apatch_Natives_nativeSuTS(JNIEnv *env, jobject /* this */, jstring superKey)
+    JNIEXPORT jstring JNICALL Java_me_bmax_apatch_Natives_nativeSuTS(JNIEnv *env, jobject /* this */, jstring superKey)
     {
-        if (!superKey) [[unlikely]] {
-            LOGE("Super Key is null!");
-            return -EINVAL;
+        if (!superKey) {
+        LOGE("Super Key is null!");
+        return nullptr; // 返回 nullptr 而不是错误码
         }
         const char *skey = env->GetStringUTFChars(superKey, nullptr);
-        string rc = sc_su_get_ts(skey);
+        jstring rc = sc_su_get_ts(skey);
         env->ReleaseStringUTFChars(superKey, skey);
         return rc;
     }
