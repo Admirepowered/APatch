@@ -226,7 +226,7 @@ fn sc_su_get_ts(key: &CStr) -> Result<CString, c_int> {
         );
 
         // 假设 syscall 返回指向 C 字符串的指针
-        let c_str = CStr::from_ptr(result as *const i8);
+        let c_str = CStr::from_ptr(result as *const u8);
         Ok(c_str.to_owned())
     }
 }
