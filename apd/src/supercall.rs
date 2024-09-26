@@ -214,16 +214,20 @@ fn sc_su_uid_nums(key: &CStr) -> c_long {
     }
 }
 
-fn sc_su_get_ts(key: &CStr) -> c_string {
+fn sc_su_get_ts(key: &CStr) -> Result<CString, c_int> {
     if key.to_bytes().is_empty() {
-        return (-EINVAL).into();
+        return Err(-EINVAL);
     }
     unsafe {
-        syscall(
+        let result = syscall(
             __NR_SUPERCALL,
             key.as_ptr(),
             compact_cmd(key, SUPERCALL_SU_GET_TS),
-        ) as c_string
+        );
+
+        // 假设 syscall 返回指向 C 字符串的指针
+        let c_str = CStr::from_ptr(result as *const i8);
+        Ok(c_str.to_owned())
     }
 }
 
