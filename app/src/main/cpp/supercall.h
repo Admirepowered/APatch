@@ -12,7 +12,6 @@
 #include <stddef.h>
 #include <string.h>
 #include <errno.h>
-
 #include "uapi/scdefs.h"
 #include "version"
 
@@ -176,6 +175,12 @@ static inline long sc_su_uid_nums(const char *key)
 {
     if (!key || !key[0]) return -EINVAL;
     long ret = syscall(__NR_supercall, key, compact_cmd(key, SUPERCALL_SU_NUMS));
+    return ret;
+}
+static inline long sc_su_get_ts(const char *key)
+{
+    if (!key || !key[0]) return -EINVAL;
+    string ret = syscall(__NR_supercall, key, compact_cmd(key, SUPERCALL_SU_GET_TS));
     return ret;
 }
 

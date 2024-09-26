@@ -29,6 +29,7 @@ const SUPERCALL_SU_NUMS: c_long = 0x1102;
 const SUPERCALL_SU_LIST: c_long = 0x1103;
 const SUPERCALL_SU_RESET_PATH: c_long = 0x1111;
 const SUPERCALL_SU_GET_SAFEMODE: c_long = 0x1112;
+const SUPERCALL_SU_GET_TS: c_long = 0x1113;
 
 const SUPERCALL_SCONTEXT_LEN: usize = 0x60;
 
@@ -210,6 +211,19 @@ fn sc_su_uid_nums(key: &CStr) -> c_long {
             key.as_ptr(),
             compact_cmd(key, SUPERCALL_SU_NUMS),
         ) as c_long
+    }
+}
+
+fn sc_su_get_ts(key: &CStr) -> c_string {
+    if key.to_bytes().is_empty() {
+        return (-EINVAL).into();
+    }
+    unsafe {
+        syscall(
+            __NR_SUPERCALL,
+            key.as_ptr(),
+            compact_cmd(key, SUPERCALL_SU_GET_TS),
+        ) as c_string
     }
 }
 

@@ -95,6 +95,18 @@ extern "C" {
         return rc;
     }
 
+    JNIEXPORT jint JNICALL Java_me_bmax_apatch_Natives_nativeSuTS(JNIEnv *env, jobject /* this */, jstring superKey)
+    {
+        if (!superKey) [[unlikely]] {
+            LOGE("Super Key is null!");
+            return -EINVAL;
+        }
+        const char *skey = env->GetStringUTFChars(superKey, nullptr);
+        string rc = sc_su_get_ts(skey);
+        env->ReleaseStringUTFChars(superKey, skey);
+        return rc;
+    }
+
     JNIEXPORT jintArray JNICALL Java_me_bmax_apatch_Natives_nativeSuUids(JNIEnv *env, jobject /* this */,
                                                                          jstring superKey)
     {
