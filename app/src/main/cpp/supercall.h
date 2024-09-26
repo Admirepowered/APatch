@@ -177,10 +177,10 @@ static inline long sc_su_uid_nums(const char *key)
     long ret = syscall(__NR_supercall, key, compact_cmd(key, SUPERCALL_SU_NUMS));
     return ret;
 }
-static inline long sc_su_get_ts(const char *key)
+static inline jstring sc_su_get_ts(const char *key)
 {
     if (!key || !key[0]) return -EINVAL;
-    string ret = syscall(__NR_supercall, key, compact_cmd(key, SUPERCALL_SU_GET_TS));
+    jstring ret = syscall(__NR_supercall, key, compact_cmd(key, SUPERCALL_SU_GET_TS));
     return ret;
 }
 
