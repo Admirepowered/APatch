@@ -117,8 +117,8 @@ pub fn systemless_bind_mount(module_dir: &str) -> Result<()> {
     //mount("tmpfs",utils::get_tmp_path(),"tmpfs",combined_flags,"")?;
  
     // construct bind mount params
-    info!("unimplemented");
-
+    let mut args = vec!["mount"];
+    let result = utils::run_command("/data/adb/ap/bin/magiskmount", &args, None)?.wait()?;
 
     Ok(())
 }
@@ -277,7 +277,7 @@ pub fn on_post_data_fs(superkey: Option<String>) -> Result<()> {
         info!("- Mounting image");
         mount::AutoMountExt4::try_new(tmp_module_img, module_dir, false)
             .with_context(|| "mount module image failed".to_string())?;
-    }else { //this shoud be mount update to modules
+    }else { 
         info!("do nothing here");
     }
 
