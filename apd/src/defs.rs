@@ -8,6 +8,7 @@ pub const APATCH_LOG_FOLDER: &str = concatcp!(WORKING_DIR, "log/");
 pub const AP_RC_PATH: &str = concatcp!(WORKING_DIR, ".aprc");
 pub const GLOBAL_NAMESPACE_FILE: &str = concatcp!(ADB_DIR,".global_namespace_enable");
 pub const BIND_MOUNT_FILE: &str = concatcp!(ADB_DIR,".bind_mount_enable");
+pub const OVERLAY_FILE: &str = concatcp!(ADB_DIR,".overlay_enable");
 pub const AP_OVERLAY_SOURCE: &str = "APatch";
 pub const DAEMON_PATH: &str = concatcp!(ADB_DIR, "apd");
 
@@ -16,6 +17,7 @@ pub const MODULE_UPDATE_TMP_IMG: &str = concatcp!(WORKING_DIR, "update_tmp.img")
 
 // warning: this directory should not change, or you need to change the code in module_installer.sh!!!
 pub const MODULE_UPDATE_TMP_DIR: &str = concatcp!(ADB_DIR, "modules_update/");
+pub const MODULE_MOUNT_DIR: &str = concatcp!(ADB_DIR, "modules_mount/");
 
 pub const SYSTEM_RW_DIR: &str = concatcp!(MODULE_DIR, ".rw/");
 

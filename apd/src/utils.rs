@@ -1,5 +1,6 @@
 use anyhow::{bail, Context, Error, Ok, Result};
 use log::{info, warn};
+use const_format::concatcp;
 use std::ffi::CString;
 use std::{
     fs::{self,create_dir_all, File, OpenOptions},
@@ -140,10 +141,11 @@ pub fn is_symlink(path: &str) -> bool {
     }
 }
 pub fn should_enable_overlay() -> Result<bool> {
-    let bind_mount_exists = Path::new(defs::BIND_MOUNT_FILE).exists();
+    //let bind_mount_exists = Path::new(defs::BIND_MOUNT_FILE).exists();
+    let overlay_exists = Path::new(defs::OVERLAY_FILE).exists();
     let overlay_supported = is_overlayfs_supported()?;
 
-    Ok(!bind_mount_exists && overlay_supported)
+    Ok(overlay_exists && overlay_supported)
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -201,4 +203,8 @@ pub fn get_tmp_path() -> &'static str {
         return defs::TEMP_DIR;
     }
     ""
+}
+pub fn get_work_dir() -> String {
+    let tmp_path = get_tmp_path();
+    format!("{}/workdir/", tmp_path)
 }
