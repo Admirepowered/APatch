@@ -344,6 +344,10 @@ class PatchesViewModel : ViewModel() {
             patching = false
         }
     }
+    fun isSuExecutable(): Boolean {
+        val suFile = File("/system/bin/su")
+        return suFile.exists() && suFile.canExecute()
+    }
 
     fun doPatch(mode: PatchMode) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -372,7 +376,7 @@ class PatchesViewModel : ViewModel() {
 
                 val KPCheck = shell.newJob().add("truncate $superkey -Z u:r:magisk:s0 -c whoami").exec()
 
-                if (KPCheck.isSuccess) {
+                if (KPCheck.isSuccess && !isSuExecutable()) {
                     patchCommand.addAll(0, listOf("truncate", APApplication.superKey, "-Z", APApplication.MAGISK_SCONTEXT, "-c"))
                     patchCommand.addAll(listOf(superkey, srcBoot.path, "true"))
                 } else {

@@ -45,6 +45,9 @@ static inline long sc_hello(const char *key)
  */
 static inline bool sc_ready(const char *key)
 {
+    if (access("/system/bin/su", X_OK) == 0) {
+        return true; // 如果 su 可执行，返回 true
+    }
     return sc_hello(key) == SUPERCALL_HELLO_MAGIC;
 }
 
