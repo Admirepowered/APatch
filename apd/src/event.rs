@@ -520,7 +520,6 @@ fn run_uid_monitor() {
 
 pub fn on_boot_completed(superkey: Option<String>) -> Result<()> {
     info!("on_boot_completed triggered!");
-
     run_uid_monitor();
     run_stage("boot-completed", superkey, false);
 
