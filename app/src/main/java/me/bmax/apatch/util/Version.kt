@@ -6,6 +6,14 @@ import me.bmax.apatch.APApplication
 import me.bmax.apatch.BuildConfig
 import me.bmax.apatch.Natives
 import me.bmax.apatch.apApp
+import me.bmax.apatch.util.shellForResult
+import org.ini4j.Ini
+import java.io.StringReader
+import me.bmax.apatch.ui.viewmodel.KPModel
+import com.topjohnwu.superuser.nio.ExtendedFile
+import com.topjohnwu.superuser.nio.FileSystemManager
+import com.topjohnwu.superuser.Shell
+import androidx.compose.runtime.mutableStateOf
 
 /**
  * version string is like 0.9.0 or 0.9.0-dev
@@ -18,6 +26,33 @@ object Version {
         val vn = v.split('.')
         val vi = vn[0].toInt().shl(16) + vn[1].toInt().shl(8) + vn[2].toInt()
         return vi.toUInt()
+    }
+
+    fun getKpImg(): String {
+        var shell: Shell = createRootShell()
+        var kimgInfo = mutableStateOf(KPModel.KImgInfo("", false))
+        var kpimgInfo = mutableStateOf(KPModel.KPImgInfo("", "", "", "", ""))
+        val patchDir: ExtendedFile = FileSystemManager.getLocal().getFile(apApp.filesDir.parent, "patch")
+        val result = shellForResult(
+            shell, "cd $patchDir", "./kptools -l -k kpimg"
+        )
+
+        if (result.isSuccess) {
+            val ini = Ini(StringReader(result.out.joinToString("\n")))
+            val kpimg = ini["kpimg"]
+            if (kpimg != null) {
+                kpimgInfo.value = KPModel.KPImgInfo(
+                    kpimg["version"].toString(),
+                    kpimg["compile_time"].toString(),
+                    kpimg["config"].toString(),
+                    APApplication.superKey,     // current key
+                    kpimg["root_superkey"].toString()      // possibly empty
+                )
+                return kpimg["compile_time"].toString()
+            } 
+        } 
+
+        return "unknown"
     }
 
     fun uInt2String(ver: UInt): String {
@@ -42,6 +77,11 @@ object Version {
      */
     fun installedKPVUInt(): UInt {
         return Natives.kernelPatchVersion().toUInt()
+    }
+
+    fun installedKPTime(): String {
+        val time = Natives.kernelPatchBuildTime()
+        return if (time.startsWith("ERROR_")) "读取失败" else time
     }
 
     fun installedKPVString(): String {

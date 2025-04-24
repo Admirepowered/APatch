@@ -189,8 +189,11 @@ class APApplication : Application(), Thread.UncaughtExceptionHandler {
                     }
 
                     // KernelPatch version
-                    val buildV = Version.buildKPVUInt()
-                    val installedV = Version.installedKPVUInt()
+                    //val buildV = Version.buildKPVUInt()
+                    //val installedV = Version.installedKPVUInt()
+                    val buildV = Version.getKpImg()
+                    val installedV = Version.installedKPTime()
+
 
                     Log.d(TAG, "kp installed version: ${installedV}, build version: $buildV")
 
