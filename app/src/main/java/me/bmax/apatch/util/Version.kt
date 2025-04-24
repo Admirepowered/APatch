@@ -15,6 +15,7 @@ import com.topjohnwu.superuser.nio.FileSystemManager
 import com.topjohnwu.superuser.Shell
 import androidx.compose.runtime.mutableStateOf
 import java.io.File
+import android.system.Os
 
 /**
  * version string is like 0.9.0 or 0.9.0-dev
@@ -39,7 +40,7 @@ object Version {
         val execs = listOf(
             "libkptools.so", "libmagiskboot.so", "libbusybox.so", "libkpatch.so", "libbootctl.so"
         )
-        error = ""
+
 
         val info = apApp.applicationInfo
         val libs = File(info.nativeLibraryDir).listFiles { _, name ->
