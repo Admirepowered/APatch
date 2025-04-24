@@ -90,17 +90,7 @@ class PatchesViewModel : ViewModel() {
         for (lib in libs) {
 
             val name = lib.name.substring(3, lib.name.length - 3)
-            val target = File(patchDir, name)
-
-            try {
-                if (!target.exists()) {
-                    Os.symlink(lib.path, target.absolutePath)
-                } else {
-                    Log.d("Symlink", "Skip existing: ${target.absolutePath}")
-                }
-            } catch (e: Exception) {
-                Log.e("Symlink", "Failed to symlink ${lib.path} -> ${target.absolutePath}", e)
-            }
+            Os.symlink(lib.path, "$patchDir/$name")
         
         }
 
@@ -108,18 +98,8 @@ class PatchesViewModel : ViewModel() {
         for (script in listOf(
             "boot_patch.sh", "boot_unpatch.sh", "boot_extract.sh", "util_functions.sh", "kpimg"
         )) {
-            val target = File(patchDir, script)
-
-            try {
-                if (!target.exists()) {
-                    apApp.assets.open(script).writeTo(target)
-                } else {
-                    Log.d("writeass", "Skip existing: ${target.absolutePath}")
-                }
-            } catch (e: Exception) {
-                Log.e("writeass", "Failed to writeass ${script} -> ${target.absolutePath}", e)
-            }
-            
+            val dest = File(patchDir, script)
+            apApp.assets.open(script).writeTo(dest)
         }
 
     }
