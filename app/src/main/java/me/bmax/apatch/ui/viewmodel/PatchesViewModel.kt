@@ -108,8 +108,18 @@ class PatchesViewModel : ViewModel() {
         for (script in listOf(
             "boot_patch.sh", "boot_unpatch.sh", "boot_extract.sh", "util_functions.sh", "kpimg"
         )) {
-            val dest = File(patchDir, script)
-            apApp.assets.open(script).writeTo(dest)
+            val target = File(patchDir, script)
+
+            try {
+                if (!target.exists()) {
+                    apApp.assets.open(script).writeTo(dest)
+                } else {
+                    Log.d("writeass", "Skip existing: ${target.absolutePath}")
+                }
+            } catch (e: Exception) {
+                Log.e("writeass", "Failed to writeass ${script.path} -> ${target.absolutePath}", e)
+            }
+            
         }
 
     }
