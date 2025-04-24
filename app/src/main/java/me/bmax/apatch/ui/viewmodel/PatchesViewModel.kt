@@ -112,12 +112,12 @@ class PatchesViewModel : ViewModel() {
 
             try {
                 if (!target.exists()) {
-                    apApp.assets.open(script).writeTo(dest)
+                    apApp.assets.open(script).writeTo(target)
                 } else {
                     Log.d("writeass", "Skip existing: ${target.absolutePath}")
                 }
             } catch (e: Exception) {
-                Log.e("writeass", "Failed to writeass ${script.path} -> ${target.absolutePath}", e)
+                Log.e("writeass", "Failed to writeass ${script} -> ${target.absolutePath}", e)
             }
             
         }
