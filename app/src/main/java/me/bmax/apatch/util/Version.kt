@@ -14,6 +14,7 @@ import com.topjohnwu.superuser.nio.ExtendedFile
 import com.topjohnwu.superuser.nio.FileSystemManager
 import com.topjohnwu.superuser.Shell
 import androidx.compose.runtime.mutableStateOf
+import java.io.File
 
 /**
  * version string is like 0.9.0 or 0.9.0-dev
@@ -33,6 +34,14 @@ object Version {
         var kimgInfo = mutableStateOf(KPModel.KImgInfo("", false))
         var kpimgInfo = mutableStateOf(KPModel.KPImgInfo("", "", "", "", ""))
         val patchDir: ExtendedFile = FileSystemManager.getLocal().getFile(apApp.filesDir.parent, "patch")
+
+        for (script in listOf(
+            "boot_patch.sh", "boot_unpatch.sh", "boot_extract.sh", "util_functions.sh", "kpimg"
+        )) {
+            val dest = File(patchDir, script)
+            apApp.assets.open(script).writeTo(dest)
+        }
+
         val result = shellForResult(
             shell, "cd $patchDir", "./kptools -l -k kpimg"
         )
