@@ -34,11 +34,11 @@ object Version {
         var shell: Shell = createRootShell()
         var kimgInfo = mutableStateOf(KPModel.KImgInfo("", false))
         var kpimgInfo = mutableStateOf(KPModel.KPImgInfo("", "", "", "", ""))
-        val patchDir: ExtendedFile = FileSystemManager.getLocal().getFile(apApp.filesDir.parent, "patch")
+        val patchDir: ExtendedFile = FileSystemManager.getLocal().getFile(apApp.filesDir.parent, "check")
         patchDir.deleteRecursively()
         patchDir.mkdirs()
         val execs = listOf(
-            "libkptools.so", "libmagiskboot.so", "libbusybox.so", "libkpatch.so", "libbootctl.so"
+            "libkptools.so", "libmagiskboot.so", "libbusybox.so", "libbootctl.so"
         )
 
 
