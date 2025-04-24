@@ -89,7 +89,11 @@ class PatchesViewModel : ViewModel() {
 
         for (lib in libs) {
             val name = lib.name.substring(3, lib.name.length - 3)
-            Os.symlink(lib.path, "$patchDir/$name")
+            try {
+                Os.symlink(lib.path, "$patchDir/$name")
+            } catch (e: Exception) {
+                e.printStackTrace() // 或者 log 错误：Log.e("symlink", "Failed to link $name", e)
+            }
         }
 
         // Extract scripts
