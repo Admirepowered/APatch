@@ -88,12 +88,20 @@ class PatchesViewModel : ViewModel() {
         } ?: emptyArray()
 
         for (lib in libs) {
+
             val name = lib.name.substring(3, lib.name.length - 3)
+            val target = File(patchDir, name)
+
             try {
-                Os.symlink(lib.path, "$patchDir/$name")
+                if (!target.exists()) {
+                    Os.symlink(lib.path, target.absolutePath)
+                } else {
+                    Log.d("Symlink", "Skip existing: ${target.absolutePath}")
+                }
             } catch (e: Exception) {
-                e.printStackTrace() // 或者 log 错误：Log.e("symlink", "Failed to link $name", e)
+                Log.e("Symlink", "Failed to symlink ${lib.path} -> ${target.absolutePath}", e)
             }
+        
         }
 
         // Extract scripts
