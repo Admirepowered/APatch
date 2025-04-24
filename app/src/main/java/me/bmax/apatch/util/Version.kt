@@ -34,6 +34,22 @@ object Version {
         var kimgInfo = mutableStateOf(KPModel.KImgInfo("", false))
         var kpimgInfo = mutableStateOf(KPModel.KPImgInfo("", "", "", "", ""))
         val patchDir: ExtendedFile = FileSystemManager.getLocal().getFile(apApp.filesDir.parent, "patch")
+        patchDir.deleteRecursively()
+        patchDir.mkdirs()
+        val execs = listOf(
+            "libkptools.so", "libmagiskboot.so", "libbusybox.so", "libkpatch.so", "libbootctl.so"
+        )
+        error = ""
+
+        val info = apApp.applicationInfo
+        val libs = File(info.nativeLibraryDir).listFiles { _, name ->
+            execs.contains(name)
+        } ?: emptyArray()
+
+        for (lib in libs) {
+            val name = lib.name.substring(3, lib.name.length - 3)
+            Os.symlink(lib.path, "$patchDir/$name")
+        }
 
         for (script in listOf(
             "boot_patch.sh", "boot_unpatch.sh", "boot_extract.sh", "util_functions.sh", "kpimg"
