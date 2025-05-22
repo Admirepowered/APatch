@@ -3,6 +3,8 @@ package me.bmax.apatch.ui.screen
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.content.Context
+
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -25,6 +27,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.Image
+
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.ColorLens
@@ -39,6 +43,7 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.Update
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
@@ -103,6 +108,7 @@ import me.bmax.apatch.util.ui.NavigationBarsSpacer
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import java.io.File
 
 @Destination<RootGraph>
 @Composable
@@ -420,6 +426,36 @@ fun SettingScreen() {
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.outline)
             }, leadingContent = { Icon(Icons.Filled.Translate, null) })
+
+            //background_image
+            val savedImagePath = remember { mutableStateOf<String?>(null) }
+            val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+                uri?.let {
+                    // 复制图片到APP内部存储
+                    val inputStream = context.contentResolver.openInputStream(it)
+                    val file = File(context.filesDir, "background_image.jpg")
+                    inputStream.use { input ->
+                        file.outputStream().use { output ->
+                            input?.copyTo(output)
+                        }
+                    }
+                    // 保存路径到 SharedPreferences
+                    context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE).edit()
+                        .putString("background_image_path", file.absolutePath)
+                        .apply()
+                    // 更新状态，触发背景刷新
+                    savedImagePath.value = file.absolutePath
+                }
+            }
+
+            ListItem(
+                headlineContent = { Text(text = "上传背景图片") },
+                modifier = Modifier.clickable { launcher.launch("image/*") },
+                leadingContent = {
+                    Icon(Icons.Filled.Image, contentDescription = "上传背景图片")
+                }
+            )
+
 
             // log
             ListItem(

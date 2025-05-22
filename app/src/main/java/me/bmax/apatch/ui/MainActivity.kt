@@ -1,6 +1,7 @@
 package me.bmax.apatch.ui
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.setContent
@@ -12,31 +13,40 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.asImageBitmap
+import android.graphics.BitmapFactory
+
+
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import coil.Coil
 import coil.ImageLoader
+import coil.compose.rememberAsyncImagePainter
 import com.ramcosta.composedestinations.DestinationsNavHost
 import com.ramcosta.composedestinations.animations.NavHostAnimatedDestinationStyle
 import com.ramcosta.composedestinations.generated.NavGraphs
@@ -49,6 +59,7 @@ import me.bmax.apatch.ui.theme.APatchTheme
 import me.bmax.apatch.util.ui.LocalSnackbarHost
 import me.zhanghai.android.appiconloader.coil.AppIconFetcher
 import me.zhanghai.android.appiconloader.coil.AppIconKeyer
+import java.io.File
 
 class MainActivity : AppCompatActivity() {
 
@@ -67,31 +78,62 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
+
             APatchTheme {
+                val context = LocalContext.current
                 val navController = rememberNavController()
                 val snackBarHostState = remember { SnackbarHostState() }
-
+                val savedImagePath = remember {
+                        context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                        .getString("background_image_path", null)
+                }
                 Scaffold(
                     bottomBar = { BottomBar(navController) }
-                ) { _ ->
-                    CompositionLocalProvider(
-                        LocalSnackbarHost provides snackBarHostState,
+                ) { innerPadding ->
+                    Box(modifier = Modifier
+                        .fillMaxSize()
+                        //.padding(innerPadding)
                     ) {
-                        DestinationsNavHost(
-                            modifier = Modifier.padding(bottom = 80.dp),
-                            navGraph = NavGraphs.root,
-                            navController = navController,
-                            engine = rememberNavHostEngine(navHostContentAlignment = Alignment.TopCenter),
-                            defaultTransitions = object : NavHostAnimatedDestinationStyle() {
-                                override val enterTransition: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition
-                                    get() = { fadeIn(animationSpec = tween(150)) }
-                                override val exitTransition: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition
-                                    get() = { fadeOut(animationSpec = tween(150)) }
+
+                        CompositionLocalProvider(
+                            LocalSnackbarHost provides snackBarHostState,
+                        ) {
+                            DestinationsNavHost(
+                                modifier = Modifier.padding(bottom = 80.dp),
+                                navGraph = NavGraphs.root,
+                                navController = navController,
+                                engine = rememberNavHostEngine(navHostContentAlignment = Alignment.TopCenter),
+                                defaultTransitions = object : NavHostAnimatedDestinationStyle() {
+                                    override val enterTransition: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition
+                                        get() = { fadeIn(animationSpec = tween(150)) }
+                                    override val exitTransition: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition
+                                        get() = { fadeOut(animationSpec = tween(150)) }
+                                }
+                            )
+                        }
+                        if (!savedImagePath.isNullOrEmpty()) {
+                            val imageBitmap = remember(savedImagePath) {
+                            val file = File(savedImagePath)
+                                if (file.exists()) {
+                                    BitmapFactory.decodeFile(file.absolutePath)?.asImageBitmap()
+                                } else null
                             }
-                        )
+
+                            imageBitmap?.let {
+                                Image(
+                                    bitmap = it,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .matchParentSize()
+                                        .graphicsLayer { alpha = 0.3f } // 设置透明度为 10%
+                                )
+                            }
+                        }
                     }
                 }
             }
+            
         }
 
         // Initialize Coil
