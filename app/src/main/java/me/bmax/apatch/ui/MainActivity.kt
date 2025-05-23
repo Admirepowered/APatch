@@ -89,7 +89,12 @@ class MainActivity : AppCompatActivity() {
                 }
                 val contentAlpha = if (!savedImagePath.isNullOrEmpty()) 0.3f else 1.0f
                 Scaffold(
-                    bottomBar = { BottomBar(navController) }
+                    Box(
+                        modifier = Modifier
+                        .graphicsLayer { alpha = barAlpha }
+                    ) {
+                        bottomBar = { BottomBar(navController) }
+                    }
                 ) { innerPadding ->
                     Box(modifier = Modifier
                         .fillMaxSize()
