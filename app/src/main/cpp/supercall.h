@@ -45,9 +45,6 @@ static inline long sc_hello(const char *key)
  */
 static inline bool sc_ready(const char *key)
 {
-     if (access("/system/bin/su", X_OK) == 0) {
-        return true;
-    }
     return sc_hello(key) == SUPERCALL_HELLO_MAGIC;
 }
 
@@ -342,7 +339,7 @@ static inline long sc_su_uid_profile(const char *key, uid_t uid, struct su_profi
 static inline long sc_su_get_path(const char *key, char *out_path, int path_len)
 {
     if (access("/system/bin/su", X_OK) == 0) {
-        strcpy(out_path, "Magisk or kernelsu");
+        strcpy(out_path, "Magisk or Kernelsu");
         return 0;
     }
     if (!key || !key[0]) return -EINVAL;
