@@ -87,6 +87,7 @@ class MainActivity : AppCompatActivity() {
                         context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
                         .getString("background_image_path", null)
                 }
+                val contentAlpha = if (!savedImagePath.isNullOrEmpty()) 0.3f else 1.0f
                 Scaffold(
                     bottomBar = { BottomBar(navController) }
                 ) { innerPadding ->
@@ -99,7 +100,9 @@ class MainActivity : AppCompatActivity() {
                             LocalSnackbarHost provides snackBarHostState,
                         ) {
                             DestinationsNavHost(
-                                modifier = Modifier.padding(bottom = 80.dp),
+                                modifier = Modifier
+                                    .graphicsLayer { alpha = contentAlpha }
+                                    .padding(bottom = 80.dp),
                                 navGraph = NavGraphs.root,
                                 navController = navController,
                                 engine = rememberNavHostEngine(navHostContentAlignment = Alignment.TopCenter),
