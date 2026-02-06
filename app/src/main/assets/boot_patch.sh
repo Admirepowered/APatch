@@ -42,9 +42,13 @@ command -v ./kptools >/dev/null 2>&1 || { >&2 echo "- Command kptools not found!
 
 if [ ! -f kernel ]; then
 echo "- Unpacking boot image"
-./kptools unpack "$BOOTIMAGE" >/dev/null 2>&1
-  if [ $? -ne 0 ]; then
-    >&2 echo "- Unpack error: $?"
+
+set -x
+./kptools unpack "$BOOTIMAGE" "$@"
+patch_rc=$?
+set +x
+  if [ $patch_rc -ne 0 ]; then
+    >&2 echo "- Unpack error: $patch_rc"
     exit $?
   fi
 fi
