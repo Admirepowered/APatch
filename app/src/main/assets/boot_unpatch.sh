@@ -47,7 +47,7 @@ if [ ! $(./kptools -i kernel -l | grep patched=false) ]; then
       exit $?
     fi
     echo "- Repacking boot image"
-    ./kptools repack "$BOOTIMAGE" >/dev/null 2>&1
+    ./kptools repack "$BOOTIMAGE"
     if [ $? -ne 0 ]; then
       >&2 echo "- Repack error: $?"
       exit $?
