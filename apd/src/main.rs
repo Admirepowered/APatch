@@ -3,6 +3,7 @@ mod assets;
 mod cli;
 mod defs;
 mod event;
+mod lua;
 mod metamodule;
 mod module;
 mod package;
@@ -10,8 +11,10 @@ mod package;
 mod pty;
 mod restorecon;
 mod sepolicy;
+mod mpolicy;
 mod supercall;
 mod utils;
+mod resetprop;
 fn main() -> anyhow::Result<()> {
     cli::run()
 }

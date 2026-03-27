@@ -9,13 +9,13 @@ use std::{
     process::Command,
     str::FromStr,
 };
-
+use crate::mpolicy::{get_policy_main};
+use crate::lua;
 use anyhow::{Context, Result, anyhow, bail, ensure};
 use const_format::concatcp;
 use is_executable::is_executable;
 use java_properties::PropertiesIter;
 use log::{info, warn};
-use mlua::{Function, Lua, Result as LuaResult, Table};
 use zip_extensions::zip_extract_file_to_memory;
 
 #[allow(clippy::wildcard_imports)]
@@ -184,12 +184,13 @@ pub fn load_sepolicy_rule() -> Result<()> {
         }
 
         info!("load policy: {}", &rule_file.display());
-        Command::new(assets::MAGISKPOLICY_PATH)
-            .arg("--live")
-            .arg("--apply")
-            .arg(&rule_file)
-            .status()
-            .with_context(|| format!("Failed to exec {}", rule_file.display()))?;
+        let mut _sepol = get_policy_main(&[
+            "magiskpolicy".to_string(),
+            "--live".to_string(),
+            "--apply".to_string(),
+            rule_file.display().to_string()
+        ])?;
+
         Ok(())
     })?;
 
@@ -248,12 +249,6 @@ pub fn exec_stage_script(stage: &str, block: bool) -> Result<()> {
     Ok(())
 }
 
-pub fn exec_stage_lua(stage: &str, wait: bool, superkey: &str) -> Result<()> {
-    let stage_safe = stage.replace('-', "_");
-    run_lua(&superkey, &stage_safe, true, wait).map_err(|e| anyhow::anyhow!("{}", e))?;
-    Ok(())
-}
-
 pub fn exec_common_scripts(dir: &str, wait: bool) -> Result<()> {
     let script_dir = Path::new(defs::ADB_DIR).join(dir);
     if !script_dir.exists() {
@@ -284,14 +279,8 @@ pub fn load_system_prop() -> Result<()> {
         }
         info!("load {} system.prop", module.display());
 
-        // resetprop -n --file system.prop
-        Command::new(assets::RESETPROP_PATH)
-            .arg("-n")
-            .arg("--file")
-            .arg(&system_prop)
-            .status()
-            .with_context(|| format!("Failed to exec {}", system_prop.display()))?;
-
+        crate::resetprop::load_system_prop_file(&system_prop)?;
+        
         Ok(())
     })?;
 
@@ -387,8 +376,17 @@ fn _install_module(zip: &str) -> Result<()> {
     // Check if this module is a metamodule
     let is_metamodule = metamodule::is_metamodule(&module_prop);
 
+    // Check if module needs mounting (has system/ dir and no skip_mount file)
+    let needs_mount = {
+        let zip_file = fs::File::open(&zip_path)?;
+        let archive = zip::ZipArchive::new(zip_file)?;
+        let has_system = archive.file_names().any(|name| name.starts_with("system/"));
+        let has_skip_mount = archive.file_names().any(|name| name == "skip_mount");
+        has_system && !has_skip_mount
+    };
+
     // Check if it's safe to install regular module
-    if !is_metamodule && let Err(is_disabled) = metamodule::check_install_safety() {
+    if !is_metamodule && needs_mount && let Err(is_disabled) = metamodule::check_install_safety() {
         println!("\n❌ Installation Blocked");
         println!("┌────────────────────────────────");
         println!("│ A metamodule with custom installer is active");
@@ -550,152 +548,13 @@ pub fn read_module_prop(module_path: &Path) -> Result<HashMap<String, String>> {
     Ok(prop_map)
 }
 
-pub fn save_text<P: AsRef<Path>>(filename: P, content: &str) -> std::io::Result<()> {
-    let _ = ensure_dir_exists("/data/adb/config");
-    let path = Path::new("/data/adb/config").join(filename);
-    fs::write(path, content)?;
-    Ok(())
-}
-
-pub fn load_text<P: AsRef<Path>>(filename: P) -> std::io::Result<String> {
-    let _ = ensure_dir_exists("/data/adb/config");
-    let path = Path::new("/data/adb/config").join(filename);
-    fs::read_to_string(path)
-}
-
-pub fn load_all_lua_modules(lua: &Lua) -> LuaResult<()> {
-    let modules_dir = Path::new("/data/adb/modules");
-
-    let modules: Table = match lua.globals().get("modules") {
-        Ok(t) => t,
-        Err(_) => {
-            let t = lua.create_table()?;
-            lua.globals().set("modules", t.clone())?;
-            t
-        }
-    };
-
-    if modules_dir.exists() {
-        for entry in
-            fs::read_dir(modules_dir).unwrap_or_else(|_| fs::read_dir("/dev/null").unwrap())
-        {
-            if let Ok(entry) = entry {
-                let path = entry.path();
-                if path.is_dir() {
-                    let id = path.file_name().unwrap().to_string_lossy().to_string();
-                    let package: Table = lua.globals().get("package")?;
-                    let old_cpath: String = package.get("cpath")?;
-                    let new_cpath = format!("{}/?.so;{}", path.to_string_lossy(), old_cpath);
-                    package.set("cpath", new_cpath)?;
-
-                    let lua_file = path.join(format!("{}.lua", id));
-
-                    if lua_file.exists() {
-                        match fs::read_to_string(&lua_file) {
-                            Ok(code) => {
-                                match lua
-                                    .load(&code)
-                                    .set_name(&*lua_file.to_string_lossy())
-                                    .eval::<Table>()
-                                {
-                                    Ok(module) => {
-                                        modules.set(id.clone(), module.clone())?;
-                                    }
-                                    Err(e) => {
-                                        eprintln!(
-                                            "Failed to eval Lua {}: {}",
-                                            lua_file.display(),
-                                            e
-                                        );
-                                    }
-                                }
-                            }
-                            Err(e) => {
-                                eprintln!("Failed to read Lua {}: {}", lua_file.display(), e);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    Ok(())
-}
-
-pub fn info_lua(lua: &Lua) -> LuaResult<Function> {
-    lua.create_function(|_, msg: String| {
-        info!("[Lua] {}", msg);
-        Ok(())
-    })
-}
-
-pub fn warn_lua(lua: &Lua) -> LuaResult<Function> {
-    lua.create_function(|_, msg: String| {
-        warn!("[Lua] {}", msg);
-        Ok(())
-    })
-}
-
-pub fn install_module_lua(lua: &Lua) -> LuaResult<Function> {
-    lua.create_function(|_, zip: String| {
-        install_module(&zip)
-            .map_err(|e| mlua::Error::external(format!("install_module failed: {}", e)))
-    })
-}
-pub fn save_text_lua(lua: &Lua) -> LuaResult<Function> {
-    lua.create_function(|_, (filename, content): (String, String)| {
-        save_text(&filename, &content)
-            .map_err(|e| mlua::Error::external(format!("save filed: {}", e)))?;
-        Ok(())
-    })
-}
-pub fn read_text_lua(lua: &Lua) -> LuaResult<Function> {
-    lua.create_function(|_, filename: String| {
-        let content = match load_text(&filename) {
-            Ok(s) => s,
-            Err(ref e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
-            Err(e) => return Err(mlua::Error::external(format!("read failed: {}", e))),
-        };
-        Ok(content)
-    })
-}
-
-pub fn run_lua(id: &str, function: &str, on_each_module: bool, _wait: bool) -> mlua::Result<()> {
-    let lua = unsafe { Lua::unsafe_new() };
-
-    let func = install_module_lua(&lua)?;
-    lua.globals().set("install_module", func)?;
-    lua.globals().set("info", info_lua(&lua)?)?;
-    lua.globals().set("warn", warn_lua(&lua)?)?;
-    lua.globals().set("setConfig", save_text_lua(&lua)?)?;
-    lua.globals().set("getConfig", read_text_lua(&lua)?)?;
-
-    load_all_lua_modules(&lua)?;
-
-    let modules: mlua::Table = lua.globals().get("modules")?;
-    if on_each_module {
-        for pair in modules.pairs::<String, mlua::Table>() {
-            let (_, module_table) = pair?;
-            if let Ok(func_obj) = module_table.get::<mlua::Function>(function) {
-                func_obj.call::<()>(id)?;
-            }
-        }
-    } else {
-        let module_table: mlua::Table = modules.get(id)?;
-        let func_obj: mlua::Function = module_table.get(function)?;
-        func_obj.call::<()>(())?;
-    }
-
-    Ok(())
-}
 pub fn run_action(id: &str) -> Result<()> {
     let action_script_path = format!("/data/adb/modules/{}/action.sh", id);
     if Path::new(&action_script_path).exists() {
         let _ = exec_script(&action_script_path, true);
     } else {
         //if no action.sh, try to run lua action
-        run_lua(&id, "action", false, true).map_err(|e| anyhow::anyhow!("{}", e))?;
+        lua::run_lua(&id, "action", false, true).map_err(|e| anyhow::anyhow!("{}", e))?;
     }
     Ok(())
 }
