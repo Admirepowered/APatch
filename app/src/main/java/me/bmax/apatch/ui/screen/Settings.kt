@@ -88,10 +88,8 @@ import me.bmax.apatch.BuildConfig
 import me.bmax.apatch.Natives
 import me.bmax.apatch.R
 import me.bmax.apatch.ui.component.SwitchItem
-import me.bmax.apatch.ui.component.rememberConfirmDialog
 import me.bmax.apatch.ui.component.rememberLoadingDialog
 import me.bmax.apatch.ui.theme.refreshTheme
-import me.bmax.apatch.util.APatchKeyHelper
 import me.bmax.apatch.util.getBugreportFile
 import me.bmax.apatch.util.isGlobalNamespaceEnabled
 import me.bmax.apatch.util.outputStream
@@ -115,9 +113,6 @@ fun SettingScreen() {
     var isGlobalNamespaceEnabled by rememberSaveable {
         mutableStateOf(false)
     }
-    var bSkipStoreSuperKey by rememberSaveable {
-        mutableStateOf(APatchKeyHelper.shouldSkipStoreSuperKey())
-    }
     if (kPatchReady && aPatchReady) {
         isGlobalNamespaceEnabled = isGlobalNamespaceEnabled()
     }
@@ -134,13 +129,6 @@ fun SettingScreen() {
     ) { paddingValues ->
 
         val loadingDialog = rememberLoadingDialog()
-        val clearKeyDialog = rememberConfirmDialog(
-            onConfirm = {
-                APatchKeyHelper.clearConfigKey()
-                APApplication.superKey = ""
-            }
-        )
-
         val showLanguageDialog = rememberSaveable { mutableStateOf(false) }
         LanguageDialog(showLanguageDialog)
 
@@ -186,39 +174,6 @@ fun SettingScreen() {
             val context = LocalContext.current
             val scope = rememberCoroutineScope()
             val prefs = APApplication.sharedPreferences
-
-            // clear key
-            if (kPatchReady) {
-                val clearKeyDialogTitle = stringResource(id = R.string.clear_super_key)
-                val clearKeyDialogContent =
-                    stringResource(id = R.string.settings_clear_super_key_dialog)
-                ListItem(
-                    leadingContent = {
-                        Icon(
-                            Icons.Filled.Key, stringResource(id = R.string.super_key)
-                        )
-                    },
-                    headlineContent = { Text(stringResource(id = R.string.clear_super_key)) },
-                    modifier = Modifier.clickable {
-                        clearKeyDialog.showConfirm(
-                            title = clearKeyDialogTitle,
-                            content = clearKeyDialogContent,
-                            markdown = false,
-                        )
-
-                    })
-            }
-
-            // store key local?
-            SwitchItem(
-                icon = Icons.Filled.Key,
-                title = stringResource(id = R.string.settings_donot_store_superkey),
-                summary = stringResource(id = R.string.settings_donot_store_superkey_summary),
-                checked = bSkipStoreSuperKey,
-                onCheckedChange = {
-                    bSkipStoreSuperKey = it
-                    APatchKeyHelper.setShouldSkipStoreSuperKey(bSkipStoreSuperKey)
-                })
 
             // Global mount
             if (kPatchReady && aPatchReady) {

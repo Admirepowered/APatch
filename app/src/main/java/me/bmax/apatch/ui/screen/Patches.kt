@@ -29,9 +29,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -200,7 +200,7 @@ fun Patches(mode: PatchesViewModel.PatchMode) {
             }
 
             // add new KPM
-            if (viewModel.superkey.isNotEmpty() && !viewModel.patching && !viewModel.patchdone && mode != PatchesViewModel.PatchMode.UNPATCH) {
+            if (!viewModel.patching && !viewModel.patchdone && mode != PatchesViewModel.PatchMode.UNPATCH) {
                 SelectFileButton(
                     text = stringResource(id = R.string.patch_embed_kpm_btn),
                     onSelected = { data, uri ->
@@ -213,7 +213,7 @@ fun Patches(mode: PatchesViewModel.PatchMode) {
             // do patch, update, unpatch
             if (!viewModel.patching && !viewModel.patchdone) {
                 // patch start
-                if (mode != PatchesViewModel.PatchMode.UNPATCH && viewModel.superkey.isNotEmpty()) {
+                if (mode != PatchesViewModel.PatchMode.UNPATCH) {
                     StartButton(stringResource(id = R.string.patch_start_patch_btn)) {
                         viewModel.doPatch(
                             mode
@@ -424,7 +424,7 @@ private fun ExtraItem(extra: KPModel.IExtraInfo, existed: Boolean, onDelete: () 
 @Composable
 private fun SetSuperKeyView(viewModel: PatchesViewModel) {
     var skey by remember { mutableStateOf(viewModel.superkey) }
-    var showWarn by remember { mutableStateOf(!viewModel.checkSuperKeyValidation(skey)) }
+    var showWarn by remember { mutableStateOf(skey.isNotEmpty() && !viewModel.checkSuperKeyValidation(skey)) }
     var keyVisible by remember { mutableStateOf(false) }
     ElevatedCard(
         colors = CardDefaults.elevatedCardColors(containerColor = run {
@@ -455,7 +455,6 @@ private fun SetSuperKeyView(viewModel: PatchesViewModel) {
                 )
             }
             Column {
-                //Spacer(modifier = Modifier.height(8.dp))
                 Box(
                     contentAlignment = Alignment.CenterEnd,
                 ) {
@@ -470,13 +469,8 @@ private fun SetSuperKeyView(viewModel: PatchesViewModel) {
                         shape = RoundedCornerShape(50.0f),
                         onValueChange = {
                             skey = it
-                            if (viewModel.checkSuperKeyValidation(it)) {
-                                viewModel.superkey = it
-                                showWarn = false
-                            } else {
-                                viewModel.superkey = ""
-                                showWarn = true
-                            }
+                            viewModel.superkey = it
+                            showWarn = it.isNotEmpty() && !viewModel.checkSuperKeyValidation(it)
                         },
                     )
                     IconButton(

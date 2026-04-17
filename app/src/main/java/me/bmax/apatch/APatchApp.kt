@@ -14,7 +14,6 @@ import androidx.lifecycle.MutableLiveData
 import com.topjohnwu.superuser.CallbackList
 import me.bmax.apatch.ui.CrashHandleActivity
 import me.bmax.apatch.util.APatchCli
-import me.bmax.apatch.util.APatchKeyHelper
 import me.bmax.apatch.util.Version
 import me.bmax.apatch.util.getRootShell
 import me.bmax.apatch.util.rootShellForResult
@@ -175,7 +174,7 @@ class APApplication : Application(), Thread.UncaughtExceptionHandler {
         }
 
 
-        var superKey: String = ""
+        var superKey: String = "su"
             set(value) {
                 field = value
                 val ready = Natives.nativeReady(value)
@@ -185,8 +184,6 @@ class APApplication : Application(), Thread.UncaughtExceptionHandler {
                     if (ready) State.ANDROIDPATCH_NOT_INSTALLED else State.UNKNOWN_STATE
                 Log.d(TAG, "state: " + _kpStateLiveData.value)
                 if (!ready) return
-
-                APatchKeyHelper.writeSPSuperKey(value)
 
                 thread {
                     val rc = Natives.su(0, null)
@@ -271,9 +268,7 @@ class APApplication : Application(), Thread.UncaughtExceptionHandler {
         // TODO: 1. make me root by kernel
         // TODO: 2. remove all usage of superkey
         sharedPreferences = getSharedPreferences(SP_NAME, Context.MODE_PRIVATE)
-        APatchKeyHelper.setSharedPreferences(sharedPreferences)
-        val savedKey = APatchKeyHelper.readSPSuperKey()
-        superKey = if (savedKey.isNullOrEmpty()) "su" else savedKey
+        superKey = "su"
 
         okhttpClient =
             OkHttpClient.Builder().cache(Cache(File(cacheDir, "okhttp"), 10 * 1024 * 1024))

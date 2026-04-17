@@ -30,7 +30,6 @@
     <string name="system_default">System default</string>
     <string name="settings_global_namespace_mode">Global namespace mode</string>
     <string name="settings_global_namespace_mode_summary">All root sessions use the global mount namespace</string>
-    <string name="settings_clear_super_key_dialog">Do you really want to proceed?</string>
 
     <string name="settings_check_update">Check for updates</string>
     <string name="settings_check_update_summary">Automatically check for updates when opening the app</string>
@@ -45,14 +44,13 @@
     <string name="safe_mode">Safe mode</string>
 
     <string name="super_key">SuperKey</string>
-    <string name="clear_super_key">Clear SuperKey</string>
     <string name="patch_set_superkey">Set SuperKey</string>
     <string name="home_patch_set_key_desc">Only credential for KernelPatch</string>
     <string name="home_patch_next_step">Next step</string>
 
     <string name="home_not_installed">Not installed</string>
-    <string name="home_install_unknown">Not installed or authenticated</string>
-    <string name="home_install_unknown_summary">Click to install</string>
+    <string name="home_install_unknown">KernelPatch not installed</string>
+    <string name="home_install_unknown_summary">Root is unavailable. The kernel may not be patched or flashed yet.</string>
     <string name="home_click_to_install">Click to install</string>
     <string name="home_working">Working 😋</string>
 
@@ -63,8 +61,6 @@
     <string name="apatch_version_update">Version: %s -&gt; %s</string>
     <string name="kpatch_version_update">Version: %s -&gt; %s</string>
     <string name="kpatch_shadow_path_title">kpatch</string>
-    <string name="home_auth_key_title">Enter SuperKey</string>
-    <string name="home_auth_key_desc">Start after certification</string>
     <string name="home_kpatch_info_title">Info</string>
 
     <string name="home_ap_cando_install">Install</string>
@@ -190,9 +186,6 @@
     <string name="enable_web_debugging">Enable WebView debugging</string>
     <string name="enable_web_debugging_summary">Can be used to debug WebUI. Please enable only when needed.</string>
 
-    <string name="settings_donot_store_superkey">Don\'t store SuperKey in local</string>
-    <string name="settings_donot_store_superkey_summary">Authenticate the SuperKey every time the manager starts</string>
-
     <string name="home_new_apatch_found">New version %s is available, click to upgrade.</string>
 
     <string name="mode_select_page_title">Install</string>
@@ -200,9 +193,6 @@
     <string name="mode_select_page_select_file">Select a boot image to patch</string>
     <string name="mode_select_page_install_inactive_slot">Install to inactive slot (After OTA)</string>
     <string name="mode_select_page_install_inactive_slot_warning">Your device will be **FORCED** to boot to the current inactive slot after a reboot!\nOnly use this option after OTA is done.\nContinue?</string>
-
-    <string name="home_dialog_auth_fail_title">Authentication failed</string>
-    <string name="home_dialog_auth_fail_content">Unable to authenticate the SuperKey, therefore APatch cannot work properly.\nHere are some possible reasons for authentication failure:\n1. You didn\'t patch the boot.img with KernelPatch.\n2. The patched boot.img wasn\'t flashed.\n3. The SuperKey is wrong or contains special characters.\n4. Your device doesn\'t support APatch and KernelPatch.\n\nPlease check and try again. If there are still issues, you can always ask questions on the official repository\'s issues page.</string>
 
     <string name="home_more_menu_feedback_or_suggestion">Feedback or suggestion</string>
     <string name="home_more_menu_about">About</string>
