@@ -120,7 +120,6 @@ android {
             }
         }
         buildConfigField("String", "buildKPV", "\"$kernelPatchVersion\"")
-        applicationId = "com.example.apatch"
         base.archivesName = "APatch_${managerVersionCode}_${managerVersionName}_${branchName}"
     }
 
