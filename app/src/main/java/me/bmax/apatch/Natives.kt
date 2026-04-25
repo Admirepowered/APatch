@@ -33,12 +33,17 @@ object Natives {
         }
     }
 
+    @FastNative
+    external fun nativeGetFd(): Int
 
     @FastNative
-    private external fun nativeSu(superKey: String, toUid: Int, scontext: String?): Long
+    external fun nativeCloseFd(fd: Int)
+
+    @FastNative
+    private external fun nativeSu(fd: Int, toUid: Int, scontext: String?): Long
 
     fun su(toUid: Int, scontext: String?): Boolean {
-        return nativeSu(APApplication.superKey, toUid, scontext) == 0L
+        return nativeSu(APApplication.scFd, toUid, scontext) == 0L
     }
 
     fun su(): Boolean {
@@ -46,110 +51,110 @@ object Natives {
     }
 
     @FastNative
-    external fun nativeReady(superKey: String): Boolean
+    external fun nativeReady(fd: Int): Boolean
 
     @FastNative
-    private external fun nativeSuPath(superKey: String): String
+    private external fun nativeSuPath(fd: Int): String
 
     fun suPath(): String {
-        return nativeSuPath(APApplication.superKey)
+        return nativeSuPath(APApplication.scFd)
     }
 
     @FastNative
-    private external fun nativeSuUids(superKey: String): IntArray
+    private external fun nativeSuUids(fd: Int): IntArray
 
     fun suUids(): IntArray {
-        return nativeSuUids(APApplication.superKey)
+        return nativeSuUids(APApplication.scFd)
     }
 
     @FastNative
-    private external fun nativeKernelPatchVersion(superKey: String): Long
+    private external fun nativeKernelPatchVersion(fd: Int): Long
     fun kernelPatchVersion(): Long {
-        return nativeKernelPatchVersion(APApplication.superKey)
+        return nativeKernelPatchVersion(APApplication.scFd)
     }
 
     @FastNative
-    private external fun nativeKernelPatchBuildTime(superKey: String): String
+    private external fun nativeKernelPatchBuildTime(fd: Int): String
     fun kernelPatchBuildTime(): String {
-        return nativeKernelPatchBuildTime(APApplication.superKey)
+        return nativeKernelPatchBuildTime(APApplication.scFd)
     }
 
     private external fun nativeLoadKernelPatchModule(
-        superKey: String, modulePath: String, args: String
+        fd: Int, modulePath: String, args: String
     ): Long
 
     fun loadKernelPatchModule(modulePath: String, args: String): Long {
-        return nativeLoadKernelPatchModule(APApplication.superKey, modulePath, args)
+        return nativeLoadKernelPatchModule(APApplication.scFd, modulePath, args)
     }
 
-    private external fun nativeUnloadKernelPatchModule(superKey: String, moduleName: String): Long
+    private external fun nativeUnloadKernelPatchModule(fd: Int, moduleName: String): Long
     fun unloadKernelPatchModule(moduleName: String): Long {
-        return nativeUnloadKernelPatchModule(APApplication.superKey, moduleName)
+        return nativeUnloadKernelPatchModule(APApplication.scFd, moduleName)
     }
 
     @FastNative
-    private external fun nativeKernelPatchModuleNum(superKey: String): Long
+    private external fun nativeKernelPatchModuleNum(fd: Int): Long
 
     fun kernelPatchModuleNum(): Long {
-        return nativeKernelPatchModuleNum(APApplication.superKey)
+        return nativeKernelPatchModuleNum(APApplication.scFd)
     }
 
     @FastNative
-    private external fun nativeKernelPatchModuleList(superKey: String): String
+    private external fun nativeKernelPatchModuleList(fd: Int): String
     fun kernelPatchModuleList(): String {
-        return nativeKernelPatchModuleList(APApplication.superKey)
+        return nativeKernelPatchModuleList(APApplication.scFd)
     }
 
     @FastNative
-    private external fun nativeKernelPatchModuleInfo(superKey: String, moduleName: String): String
+    private external fun nativeKernelPatchModuleInfo(fd: Int, moduleName: String): String
     fun kernelPatchModuleInfo(moduleName: String): String {
-        return nativeKernelPatchModuleInfo(APApplication.superKey, moduleName)
+        return nativeKernelPatchModuleInfo(APApplication.scFd, moduleName)
     }
 
     private external fun nativeControlKernelPatchModule(
-        superKey: String, modName: String, jctlargs: String
+        fd: Int, modName: String, jctlargs: String
     ): KPMCtlRes
 
     fun kernelPatchModuleControl(moduleName: String, controlArg: String): KPMCtlRes {
-        return nativeControlKernelPatchModule(APApplication.superKey, moduleName, controlArg)
+        return nativeControlKernelPatchModule(APApplication.scFd, moduleName, controlArg)
     }
 
     @FastNative
     private external fun nativeGrantSu(
-        superKey: String, uid: Int, toUid: Int, scontext: String?
+        fd: Int, uid: Int, toUid: Int, scontext: String?
     ): Long
 
     fun grantSu(uid: Int, toUid: Int, scontext: String?): Long {
-        return nativeGrantSu(APApplication.superKey, uid, toUid, scontext)
+        return nativeGrantSu(APApplication.scFd, uid, toUid, scontext)
     }
 
     @FastNative
-    private external fun nativeRevokeSu(superKey: String, uid: Int): Long
+    private external fun nativeRevokeSu(fd: Int, uid: Int): Long
     fun revokeSu(uid: Int): Long {
-        return nativeRevokeSu(APApplication.superKey, uid)
+        return nativeRevokeSu(APApplication.scFd, uid)
     }
 
     @FastNative
-    private external fun nativeSetUidExclude(superKey: String, uid: Int, exclude: Int): Int
+    private external fun nativeSetUidExclude(fd: Int, uid: Int, exclude: Int): Int
     fun setUidExclude(uid: Int, exclude: Int): Int {
-        return nativeSetUidExclude(APApplication.superKey, uid, exclude)
+        return nativeSetUidExclude(APApplication.scFd, uid, exclude)
     }
 
     @FastNative
-    private external fun nativeGetUidExclude(superKey: String, uid: Int): Int
+    private external fun nativeGetUidExclude(fd: Int, uid: Int): Int
     fun isUidExcluded(uid: Int): Int {
-        return nativeGetUidExclude(APApplication.superKey, uid)
+        return nativeGetUidExclude(APApplication.scFd, uid)
     }
 
     @FastNative
-    private external fun nativeSuProfile(superKey: String, uid: Int): Profile
+    private external fun nativeSuProfile(fd: Int, uid: Int): Profile
     fun suProfile(uid: Int): Profile {
-        return nativeSuProfile(APApplication.superKey, uid)
+        return nativeSuProfile(APApplication.scFd, uid)
     }
 
     @FastNative
-    private external fun nativeResetSuPath(superKey: String, path: String): Boolean
+    private external fun nativeResetSuPath(fd: Int, path: String): Boolean
     fun resetSuPath(path: String): Boolean {
-        return nativeResetSuPath(APApplication.superKey, path)
+        return nativeResetSuPath(APApplication.scFd, path)
     }
 }

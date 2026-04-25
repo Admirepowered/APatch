@@ -116,9 +116,9 @@ pub fn read_text_lua(lua: &Lua) -> LuaResult<Function> {
     })
 }
 
-pub fn exec_stage_lua(stage: &str, wait: bool, superkey: &str) -> Result<()> {
+pub fn exec_stage_lua(stage: &str, wait: bool, arg: &str) -> Result<()> {
     let stage_safe = stage.replace('-', "_");
-    run_lua(&superkey, &stage_safe, true, wait).map_err(|e| anyhow::anyhow!("{}", e))?;
+    run_lua(arg, &stage_safe, true, wait).map_err(|e| anyhow::anyhow!("{}", e))?;
     Ok(())
 }
 

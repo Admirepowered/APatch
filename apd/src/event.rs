@@ -1,6 +1,5 @@
 use std::{
     env,
-    ffi::CStr,
     fs,
     os::unix::{fs::PermissionsExt, process::CommandExt},
     path::{Path, PathBuf},
@@ -27,9 +26,8 @@ use crate::{
     utils::{self, switch_cgroups},
 };
 
-pub fn report_kernel(superkey: Option<String>, event: &str, state: &str) -> Result<()> {
+pub fn report_kernel(event: &str, state: &str) -> Result<()> {
     let args = vec![
-        superkey.unwrap_or_default(),
         "event".to_string(),
         event.to_string(),
         state.to_string(),
@@ -41,13 +39,13 @@ pub fn report_kernel(superkey: Option<String>, event: &str, state: &str) -> Resu
 
 
 
-pub fn on_post_data_fs(superkey: Option<String>) -> Result<()> {
+pub fn on_post_data_fs(fd: i32) -> Result<()> {
     utils::umask(0);
-    report_kernel(superkey.clone(), "post-fs-data", "before")?;
+    report_kernel("post-fs-data", "before")?;
     use std::process::Stdio;
     #[cfg(unix)]
 
-    init_load_su_path(&superkey);
+    init_load_su_path(fd);
 
     let mut sepol = get_policy_main(&[
         "magiskpolicy".to_string(),
@@ -59,11 +57,11 @@ pub fn on_post_data_fs(superkey: Option<String>) -> Result<()> {
 
 
     info!("Re-privilege apd profile after injecting sepolicy");
-    supercall::privilege_apd_profile(&superkey);
+    supercall::privilege_apd_profile(fd);
 
     if utils::has_magisk() {
         warn!("Magisk detected, skip post-fs-data!");
-        report_kernel(superkey.clone(), "post-fs-data", "after")?;
+        report_kernel("post-fs-data", "after")?;
         return Ok(());
     }
 
@@ -138,7 +136,7 @@ pub fn on_post_data_fs(superkey: Option<String>) -> Result<()> {
         Err(_) => println!("{} not found", key),
     }
 
-    let safe_mode = utils::is_safe_mode(superkey.clone());
+    let safe_mode = utils::is_safe_mode(fd);
 
     if safe_mode {
         // we should still mount modules.img to `/data/adb/modules` in safe mode
@@ -193,7 +191,7 @@ pub fn on_post_data_fs(superkey: Option<String>) -> Result<()> {
     if let Err(e) = module::exec_stage_script("post-fs-data", true) {
         warn!("exec post-fs-data scripts failed: {}", e);
     }
-    if let Err(e) = lua::exec_stage_lua("post-fs-data", true, superkey.as_deref().unwrap_or("")) {
+    if let Err(e) = lua::exec_stage_lua("post-fs-data", true, "") {
         warn!("Failed to exec post-fs-data lua: {}", e);
     }
     // load system.prop
@@ -204,14 +202,14 @@ pub fn on_post_data_fs(superkey: Option<String>) -> Result<()> {
     info!("remove update flag");
     let _ = fs::remove_file(module_update_flag);
 
-    run_stage("post-mount", superkey.clone(), true);
+    run_stage("post-mount", fd, true);
 
     env::set_current_dir("/").with_context(|| "failed to chdir to /")?;
-    report_kernel(superkey, "post-fs-data", "after")?;
+    report_kernel("post-fs-data", "after")?;
     Ok(())
 }
 
-fn run_stage(stage: &str, superkey: Option<String>, block: bool) {
+fn run_stage(stage: &str, fd: i32, block: bool) {
     utils::umask(0);
 
     if utils::has_magisk() {
@@ -219,7 +217,7 @@ fn run_stage(stage: &str, superkey: Option<String>, block: bool) {
         return;
     }
 
-    if utils::is_safe_mode(superkey.clone()) {
+    if utils::is_safe_mode(fd) {
         warn!("safe mode, skip {stage} scripts");
         if let Err(e) = module::disable_all_modules() {
             warn!("disable all modules failed: {}", e);
@@ -238,14 +236,14 @@ fn run_stage(stage: &str, superkey: Option<String>, block: bool) {
     if let Err(e) = module::exec_stage_script(stage, block) {
         warn!("Failed to exec {stage} scripts: {e}");
     }
-    if let Err(e) = lua::exec_stage_lua(stage, block, superkey.as_deref().unwrap_or("")) {
+    if let Err(e) = lua::exec_stage_lua(stage, block, "") {
         warn!("Failed to exec {stage} lua: {e}");
     }
 }
 
-pub fn on_services(superkey: Option<String>) -> Result<()> {
+pub fn on_services(fd: i32) -> Result<()> {
     info!("on_services triggered!");
-    run_stage("service", superkey, false);
+    run_stage("service", fd, false);
 
     Ok(())
 }
@@ -272,10 +270,10 @@ fn run_uid_monitor() {
         .expect("[run_uid_monitor] Failed to run uid monitor");
 }
 
-pub fn on_boot_completed(superkey: Option<String>) -> Result<()> {
+pub fn on_boot_completed(fd: i32) -> Result<()> {
     info!("on_boot_completed triggered!");
 
-    run_stage("boot-completed", superkey, false);
+    run_stage("boot-completed", fd, false);
 
     run_uid_monitor();
     Ok(())
@@ -294,16 +292,19 @@ pub fn start_uid_listener() -> Result<()> {
     let tx_clone = tx.clone();
     let mutex = Arc::new(Mutex::new(()));
 
+    let fd = supercall::sc_get_fd();
+    if fd < 0 {
+        anyhow::bail!("Failed to open supercall device for uid listener");
+    }
+
     {
         let mutex_clone = mutex.clone();
         thread::spawn(move || {
             let mut signals = Signals::new(&[SIGTERM, SIGINT, SIGPWR]).unwrap();
             for sig in signals.forever() {
                 log::warn!("[shutdown] Caught signal {sig}, refreshing package list...");
-                let skey = CStr::from_bytes_with_nul(b"su\0")
-                    .expect("[shutdown_listener] CStr::from_bytes_with_nul failed");
-                refresh_ap_package_list(&skey, &mutex_clone);
-                break; // 执行一次后退出线程
+                refresh_ap_package_list(fd, &mutex_clone);
+                break;
             }
         });
     }
@@ -332,9 +333,12 @@ pub fn start_uid_listener() -> Result<()> {
     while let Ok(delayed) = rx.recv() {
         if delayed {
             debounce = false;
-            let skey = CStr::from_bytes_with_nul(b"su\0")
-                .expect("[start_uid_listener] CStr::from_bytes_with_nul failed");
-            refresh_ap_package_list(&skey, &mutex);
+            let fd = supercall::sc_get_fd();
+            if fd < 0 {
+                warn!("[start_uid_listener] Failed to reopen supercall device");
+                continue;
+            }
+            refresh_ap_package_list(fd, &mutex);
         } else if !debounce {
             thread::sleep(Duration::from_secs(1));
             debounce = true;

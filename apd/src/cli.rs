@@ -10,13 +10,6 @@ use log::LevelFilter;
 #[derive(Parser, Debug)]
 #[command(author, version = defs::VERSION_CODE, about, long_about = None)]
 struct Args {
-    #[arg(
-        short,
-        long,
-        value_name = "KEY",
-        help = "Super key for authentication root"
-    )]
-    superkey: Option<String>,
     #[command(subcommand)]
     command: Commands,
 }
@@ -135,14 +128,18 @@ pub fn run() -> Result<()> {
 
     log::info!("command: {:?}", cli.command);
 
-    if let Some(ref _superkey) = cli.superkey {
-        supercall::privilege_apd_profile(&cli.superkey);
+    let fd = supercall::sc_get_fd();
+    if fd < 0 {
+        log::error!("Failed to open supercall device: {}", fd);
+        std::process::exit(1);
     }
 
-    let result = match cli.command {
-        Commands::PostFsData => event::on_post_data_fs(cli.superkey),
+    supercall::privilege_apd_profile(fd);
 
-        Commands::BootCompleted => event::on_boot_completed(cli.superkey),
+    let result = match cli.command {
+        Commands::PostFsData => event::on_post_data_fs(fd),
+
+        Commands::BootCompleted => event::on_boot_completed(fd),
 
         Commands::UidListener => event::start_uid_listener(),
 
@@ -164,7 +161,7 @@ pub fn run() -> Result<()> {
             }
         }
 
-        Commands::Services => event::on_services(cli.superkey),
+        Commands::Services => event::on_services(fd),
 
         Commands::Resetprop(resetprop_args) => crate::resetprop::execute(&resetprop_args)
             .inspect_err(|e| {

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
-/* 
+/*
  * Copyright (C) 2023 bmax121. All Rights Reserved.
  */
 
@@ -7,562 +7,558 @@
 #define _KPU_SUPERCALL_H_
 
 #include <unistd.h>
-#include <sys/syscall.h>
+#include <sys/ioctl.h>
+#include <fcntl.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <string.h>
 #include <errno.h>
+#include <alloca.h>
 
 #include "uapi/scdefs.h"
-#include "version"
-
-/// KernelPatch version is greater than or equal to 0x0a05
-static inline long ver_and_cmd(const char *key, long cmd)
-{
-    uint32_t version_code = (MAJOR << 16) + (MINOR << 8) + PATCH;
-    return ((long)version_code << 32) | (0x1158 << 16) | (cmd & 0xFFFF);
-}
 
 /**
- * @brief If KernelPatch installed, @see SUPERCALL_HELLO_ECHO will echoed.
- * 
- * @param key : superkey or 'su' string if caller uid is su allowed 
- * @return long 
+ * @brief Get a supercall fd by opening /dev/kp.
+ * The kernel hook on openat installs an anonymous inode for the trusted manager.
+ *
+ * @return int: fd on success, negative on failure
  */
-static inline long sc_hello(const char *key)
+static inline int sc_get_fd(void)
 {
-    if (!key || !key[0]) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_HELLO));
-    return ret;
+    return open(KP_DEVICE_PATH, O_RDWR);
 }
 
 /**
  * @brief Is KernelPatch installed?
- * 
- * @param key : superkey or 'su' string if caller uid is su allowed 
- * @return true 
- * @return false 
+ *
+ * @param fd: supercall fd
+ * @return true
+ * @return false
  */
-static inline bool sc_ready(const char *key)
+static inline bool sc_ready(int fd)
 {
-    return sc_hello(key) == SUPERCALL_HELLO_MAGIC;
+    return ioctl(fd, SUPERCALL_HELLO, 0) == SUPERCALL_HELLO_MAGIC;
 }
 
 /**
  * @brief Print messages by printk in the kernel
- * 
- * @param key : superkey or 'su' string if caller uid is su allowed 
- * @param msg 
- * @return long 
+ *
+ * @param fd: supercall fd
+ * @param msg
+ * @return long
  */
-static inline long sc_klog(const char *key, const char *msg)
+static inline long sc_klog(int fd, const char *msg)
 {
-    if (!key || !key[0]) return -EINVAL;
     if (!msg || strlen(msg) <= 0) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_KLOG), msg);
-    return ret;
+    return ioctl(fd, SUPERCALL_KLOG, msg);
 }
 
 /**
- * @brief Print build kernel time
- * 
- * @param key : superkey or 'su' string if caller uid is su allowed 
- * @param buildtime 
- * @param timestamp
- * @return long 
- */
- static inline long sc_get_build_time(const char *key, const char *buildtime, size_t len)
- {
-     if (!key || !key[0]) return -EINVAL;
-     if (!buildtime) return -EINVAL;
-     long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_BUILD_TIME), buildtime,len);
-     return ret;
- }
-
-/**
  * @brief KernelPatch version number
- * 
- * @param key 
- * @return uint32_t 
+ *
+ * @param fd: supercall fd
+ * @return uint32_t
  */
-static inline uint32_t sc_kp_ver(const char *key)
+static inline uint32_t sc_kp_ver(int fd)
 {
-    if (!key || !key[0]) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_KERNELPATCH_VER));
-    return (uint32_t)ret;
+    return (uint32_t)ioctl(fd, SUPERCALL_KERNELPATCH_VER, 0);
 }
 
 /**
  * @brief Kernel version number
- * 
- * @param key : superkey or 'su' string if caller uid is su allowed 
- * @return uint32_t 
+ *
+ * @param fd: supercall fd
+ * @return uint32_t
  */
-static inline uint32_t sc_k_ver(const char *key)
+static inline uint32_t sc_k_ver(int fd)
 {
-    if (!key || !key[0]) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_KERNEL_VER));
-    return (uint32_t)ret;
+    return (uint32_t)ioctl(fd, SUPERCALL_KERNEL_VER, 0);
+}
+
+/**
+ * @brief KernelPatch build time
+ *
+ * @param fd: supercall fd
+ * @param out_buildtime
+ * @param outlen
+ * @return long
+ */
+static inline long sc_kp_buildtime(int fd, char *out_buildtime, int outlen)
+{
+    if (!out_buildtime || outlen <= 0) return -EINVAL;
+    return ioctl(fd, SUPERCALL_BUILD_TIME, out_buildtime);
 }
 
 /**
  * @brief Substitute user of current thread
- * 
- * @param key : superkey or 'su' string if caller uid is su allowed 
- * @param profile : if scontext is invalid or illegal, all selinux permission checks will bypass via hook
+ *
+ * @param fd: supercall fd
+ * @param profile: if scontext is invalid or illegal, all selinux permission checks will bypass via hook
  * @see struct su_profile
  * @return long : 0 if succeed
  */
-static inline long sc_su(const char *key, struct su_profile *profile)
+static inline long sc_su(int fd, struct su_profile *profile)
 {
-    if (!key || !key[0]) return -EINVAL;
+    if (!profile) return -EINVAL;
     if (strlen(profile->scontext) >= SUPERCALL_SCONTEXT_LEN) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_SU), profile);
-    return ret;
+    return ioctl(fd, SUPERCALL_SU, profile);
 }
 
 /**
  * @brief Substitute user of tid specfied thread
- * 
- * @param key : superkey or 'su' string if caller uid is su allowed 
- * @param tid : target thread id
- * @param profile : if scontext is invalid or illegal, all selinux permission checks will bypass via hook
- * @see struct su_profile
- * @return long : 0 if succeed 
- */
-static inline long sc_su_task(const char *key, pid_t tid, struct su_profile *profile)
-{
-    if (!key || !key[0]) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_SU_TASK), tid, profile);
-    return ret;
-}
-
-/**
- * @brief 
- * 
- * @param key 
- * @param gid group id
- * @param did data id
- * @param data 
- * @param dlen 
- * @return long 
- */
-static inline long sc_kstorage_write(const char *key, int gid, long did, void *data, int offset, int dlen)
-{
-    if (!key || !key[0]) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_KSTORAGE_WRITE), gid, did, data, (((long)offset << 32) | dlen));
-    return ret;
-}
-
-/**
- * @brief 
- * 
- * @param key 
- * @param gid 
- * @param did 
- * @param out_data 
- * @param dlen 
- * @return long 
- */
-static inline long sc_kstorage_read(const char *key, int gid, long did, void *out_data, int offset, int dlen)
-{
-    if (!key || !key[0]) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_KSTORAGE_READ), gid, did, out_data, (((long)offset << 32) | dlen));
-    return ret;
-}
-
-
-/**
- * @brief 
- * 
- * @param key 
- * @param gid 
- * @param ids 
- * @param ids_len 
- * @return long numbers of listed ids
- */
-static inline long sc_kstorage_list_ids(const char *key, int gid, long *ids, int ids_len)
-{
-    if (!key || !key[0]) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_KSTORAGE_LIST_IDS), gid, ids, ids_len);
-    return ret;
-}
-
-
-/**
- * @brief 
- * 
- * @param key 
- * @param gid 
- * @param did 
- * @return long 
- */
-static inline long sc_kstorage_remove(const char *key, int gid, long did)
-{
-    if (!key || !key[0]) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_KSTORAGE_REMOVE), gid, did);
-    return ret;
-}
-
-#ifdef ANDROID
-/**
- * @brief 
- * 
- * @param key 
- * @param uid 
- * @param exclude 
- * @return long 
- */
-static inline long sc_set_ap_mod_exclude(const char *key, uid_t uid, int exclude)
-{
-    if(exclude) {
-        return sc_kstorage_write(key, KSTORAGE_EXCLUDE_LIST_GROUP, uid, &exclude, 0, sizeof(exclude));
-    } else {
-        return sc_kstorage_remove(key, KSTORAGE_EXCLUDE_LIST_GROUP, uid);
-    }
-}
-
-
-/**
- * @brief 
- * 
- * @param key 
- * @param uid 
- * @param exclude 
- * @return long 
- */
-static inline int sc_get_ap_mod_exclude(const char *key, uid_t uid)
-{
-    int exclude = 0;
-    int rc = sc_kstorage_read(key, KSTORAGE_EXCLUDE_LIST_GROUP, uid, &exclude, 0, sizeof(exclude));
-    if (rc < 0) return 0;
-    return exclude;
-}
-
-/**
  *
+ * @param fd: supercall fd
+ * @param tid : target thread id
+ * @param profile: if scontext is invalid or illegal, all selinux permission checks will bypass via hook
+ * @see struct su_profile
+ * @return long : 0 if succeed
  */
-static inline int sc_list_ap_mod_exclude(const char *key, uid_t *uids, int uids_len)
+static inline long sc_su_task(int fd, pid_t tid, struct su_profile *profile)
 {
-    if(uids_len < 0 || uids_len > 512) return -E2BIG;
-    long ids[uids_len];
-    int rc = sc_kstorage_list_ids(key, KSTORAGE_EXCLUDE_LIST_GROUP, ids, uids_len);
-    if (rc < 0) return 0;
-    for(int i = 0; i < rc; i ++) {
-        uids[i] = (uid_t)ids[i];
-    }
-    return rc;
+    if (!profile) return -EINVAL;
+    struct {
+        pid_t pid;
+        struct su_profile profile;
+    } args;
+    args.pid = tid;
+    memcpy(&args.profile, profile, sizeof(struct su_profile));
+    return ioctl(fd, SUPERCALL_SU_TASK, &args);
 }
-
-#endif
 
 /**
  * @brief Grant su permission
- * 
- * @param key 
+ *
+ * @param fd: supercall fd
  * @param profile : if scontext is invalid or illegal, all selinux permission checks will bypass via hook
  * @return long : 0 if succeed
  */
-static inline long sc_su_grant_uid(const char *key, struct su_profile *profile)
+static inline long sc_su_grant_uid(int fd, struct su_profile *profile)
 {
-    if (!key || !key[0]) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_SU_GRANT_UID), profile);
-    return ret;
+    if (!profile) return -EINVAL;
+    return ioctl(fd, SUPERCALL_SU_GRANT_UID, profile);
 }
 
 /**
  * @brief Revoke su permission
- * 
- * @param key 
- * @param uid 
+ *
+ * @param fd: supercall fd
+ * @param uid
  * @return long 0 if succeed
  */
-static inline long sc_su_revoke_uid(const char *key, uid_t uid)
+static inline long sc_su_revoke_uid(int fd, uid_t uid)
 {
-    if (!key || !key[0]) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_SU_REVOKE_UID), uid);
-    return ret;
+    return ioctl(fd, SUPERCALL_SU_REVOKE_UID, &uid);
 }
 
 /**
  * @brief Get numbers of su allowed uids
- * 
- * @param key 
- * @return long 
+ *
+ * @param fd: supercall fd
+ * @return long
  */
-static inline long sc_su_uid_nums(const char *key)
+static inline long sc_su_uid_nums(int fd)
 {
-    if (!key || !key[0]) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_SU_NUMS));
-    return ret;
+    return ioctl(fd, SUPERCALL_SU_NUMS, 0);
 }
 
 /**
- * @brief 
- * 
- * @param key : superkey or 'su' string if caller uid is su allowed 
- * @param buf 
- * @param num 
- * @return long : The numbers of uids if succeed, nagative value if failed
+ * @brief List all su allowed uids
+ *
+ * @param fd: supercall fd
+ * @param buf
+ * @param num
+ * @return long : The numbers of uids if succeed, negative value if failed
  */
-static inline long sc_su_allow_uids(const char *key, uid_t *buf, int num)
+static inline long sc_su_allow_uids(int fd, uid_t *buf, int num)
 {
-    if (!key || !key[0]) return -EINVAL;
     if (!buf || num <= 0) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_SU_LIST), buf, num);
-    return ret;
+    struct {
+        int num;
+        uid_t *uids;
+    } args = { num, buf };
+    return ioctl(fd, SUPERCALL_SU_LIST, &args);
 }
 
 /**
  * @brief Get su profile of specified uid
- * 
- * @param key 
- * @param uid 
- * @param out_profile 
+ *
+ * @param fd: supercall fd
+ * @param uid
+ * @param out_profile
  * @return long : 0 if succeed
  */
-static inline long sc_su_uid_profile(const char *key, uid_t uid, struct su_profile *out_profile)
+static inline long sc_su_uid_profile(int fd, uid_t uid, struct su_profile *out_profile)
 {
-    if (!key || !key[0]) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_SU_PROFILE), uid, out_profile);
+    if (!out_profile) return -EINVAL;
+    struct {
+        uid_t uid;
+        struct su_profile profile;
+    } args;
+    args.uid = uid;
+    long ret = ioctl(fd, SUPERCALL_SU_PROFILE, &args);
+    if (ret == 0) memcpy(out_profile, &args.profile, sizeof(struct su_profile));
     return ret;
 }
 
 /**
- * @brief Get full path of current 'su' command 
- * 
- * @param key : superkey or 'su' string if caller uid is su allowed 
- * @param out_path 
- * @param path_len 
+ * @brief Get full path of current 'su' command
+ *
+ * @param fd: supercall fd
+ * @param out_path
+ * @param path_len
  * @return long : The length of result string if succeed, negative if failed
  */
-static inline long sc_su_get_path(const char *key, char *out_path, int path_len)
+static inline long sc_su_get_path(int fd, char *out_path, int path_len)
 {
-    if (!key || !key[0]) return -EINVAL;
     if (!out_path || path_len <= 0) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_SU_GET_PATH), out_path, path_len);
-    return ret;
+    struct {
+        int len;
+        char buf[0];
+    } *args = reinterpret_cast<decltype(args)>(out_path);
+    struct { int len; } get_path_args = { path_len };
+    return ioctl(fd, SUPERCALL_SU_GET_PATH, &get_path_args);
 }
 
 /**
- * @brief Reset full path of 'su' command 
- * 
- * @param key 
- * @param path 
+ * @brief Reset full path of 'su' command
+ *
+ * @param fd: supercall fd
+ * @param path
  * @return long : 0 if succeed
  */
-static inline long sc_su_reset_path(const char *key, const char *path)
+static inline long sc_su_reset_path(int fd, const char *path)
 {
-    if (!key || !key[0]) return -EINVAL;
     if (!path || !path[0]) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_SU_RESET_PATH), path);
-    return ret;
+    return ioctl(fd, SUPERCALL_SU_RESET_PATH, path);
 }
 
 /**
  * @brief Get current all-allowed selinux context
- * 
- * @param key : superkey or 'su' string if caller uid is su allowed  
- * @param out_sctx 
+ *
+ * @param fd: supercall fd
+ * @param out_sctx
  * @param sctx_len
- * @return long 0 if there is a all-allowed selinux context now
+ * @return long
  */
-static inline long sc_su_get_all_allow_sctx(const char *key, char *out_sctx, int sctx_len)
+static inline long sc_su_get_all_allow_sctx(int fd, char *out_sctx, int sctx_len)
 {
-    if (!key || !key[0]) return -EINVAL;
     if (!out_sctx) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_SU_GET_ALLOW_SCTX), out_sctx);
-    return ret;
+    struct { int len; } args = { sctx_len };
+    return ioctl(fd, SUPERCALL_SU_GET_ALLOW_SCTX, &args);
 }
 
 /**
  * @brief Reset current all-allowed selinux context
- * 
- * @param key : superkey or 'su' string if caller uid is su allowed  
- * @param sctx If sctx is empty string, clear all-allowed selinux, 
- * otherwise, try to reset a new all-allowed selinux context
+ *
+ * @param fd: supercall fd
+ * @param sctx
  * @return long 0 if succeed
  */
-static inline long sc_su_reset_all_allow_sctx(const char *key, const char *sctx)
+static inline long sc_su_reset_all_allow_sctx(int fd, const char *sctx)
 {
-    if (!key || !key[0]) return -EINVAL;
     if (!sctx) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_SU_SET_ALLOW_SCTX), sctx);
-    return ret;
+    return ioctl(fd, SUPERCALL_SU_SET_ALLOW_SCTX, sctx);
 }
 
 /**
  * @brief Load module
- * 
- * @param key : superkey
- * @param path 
- * @param args 
- * @param reserved 
+ *
+ * @param fd: supercall fd
+ * @param path
+ * @param args
+ * @param reserved
  * @return long : 0 if succeed
  */
-static inline long sc_kpm_load(const char *key, const char *path, const char *args, void *reserved)
+static inline long sc_kpm_load(int fd, const char *path, const char *args, void *reserved)
 {
-    if (!key || !key[0]) return -EINVAL;
     if (!path || strlen(path) <= 0) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_KPM_LOAD), path, args, reserved);
-    return ret;
+    struct {
+        char path[1024];
+        char args[1024];
+    } kargs;
+    memset(&kargs, 0, sizeof(kargs));
+    strncpy(kargs.path, path, sizeof(kargs.path) - 1);
+    if (args) strncpy(kargs.args, args, sizeof(kargs.args) - 1);
+    return ioctl(fd, SUPERCALL_KPM_LOAD, &kargs);
 }
 
 /**
- * @brief Control module with arguments 
- * 
- * @param key : superkey
+ * @brief Control module with arguments
+ *
+ * @param fd: supercall fd
  * @param name : module name
  * @param ctl_args : control argument
  * @param out_msg : output message buffer
  * @param outlen : buffer length of out_msg
  * @return long : 0 if succeed
  */
-static inline long sc_kpm_control(const char *key, const char *name, const char *ctl_args, char *out_msg, long outlen)
+static inline long sc_kpm_control(int fd, const char *name, const char *ctl_args, char *out_msg, long outlen)
 {
-    if (!key || !key[0]) return -EINVAL;
     if (!name || strlen(name) <= 0) return -EINVAL;
     if (!ctl_args || strlen(ctl_args) <= 0) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_KPM_CONTROL), name, ctl_args, out_msg, outlen);
+    struct kp_ioctl_kpm_control {
+        char name[64];
+        char args[1024];
+        int outlen;
+        char out_buf[0];
+    };
+    int total = sizeof(struct kp_ioctl_kpm_control) + outlen;
+    struct kp_ioctl_kpm_control *buf = static_cast<struct kp_ioctl_kpm_control *>(alloca(total));
+    if (!buf) return -ENOMEM;
+    memset(buf, 0, total);
+    strncpy(buf->name, name, sizeof(buf->name) - 1);
+    strncpy(buf->args, ctl_args, sizeof(buf->args) - 1);
+    buf->outlen = outlen;
+    long ret = ioctl(fd, SUPERCALL_KPM_CONTROL, buf);
+    if (ret >= 0 && out_msg) memcpy(out_msg, buf->out_buf, outlen);
     return ret;
 }
 
 /**
  * @brief Unload module
- * 
- * @param key : superkey
+ *
+ * @param fd: supercall fd
  * @param name : module name
- * @param reserved 
+ * @param reserved
  * @return long : 0 if succeed
  */
-static inline long sc_kpm_unload(const char *key, const char *name, void *reserved)
+static inline long sc_kpm_unload(int fd, const char *name, void *reserved)
 {
-    if (!key || !key[0]) return -EINVAL;
     if (!name || strlen(name) <= 0) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_KPM_UNLOAD), name, reserved);
-    return ret;
+    struct {
+        char name[64];
+    } kargs;
+    memset(&kargs, 0, sizeof(kargs));
+    strncpy(kargs.name, name, sizeof(kargs.name) - 1);
+    return ioctl(fd, SUPERCALL_KPM_UNLOAD, &kargs);
 }
 
 /**
  * @brief Current loaded module numbers
- * 
- * @param key : superkey
+ *
+ * @param fd: supercall fd
  * @return long
  */
-static inline long sc_kpm_nums(const char *key)
+static inline long sc_kpm_nums(int fd)
 {
-    if (!key || !key[0]) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_KPM_NUMS));
-    return ret;
+    return ioctl(fd, SUPERCALL_KPM_NUMS, 0);
 }
 
 /**
  * @brief List names of current loaded modules, splited with '\n'
- * 
- * @param key : superkey
+ *
+ * @param fd: supercall fd
  * @param names_buf : output buffer
  * @param buf_len : the length of names_buf
  * @return long : the length of result string if succeed, negative if failed
  */
-static inline long sc_kpm_list(const char *key, char *names_buf, int buf_len)
+static inline long sc_kpm_list(int fd, char *names_buf, int buf_len)
 {
-    if (!key || !key[0]) return -EINVAL;
     if (!names_buf || buf_len <= 0) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_KPM_LIST), names_buf, buf_len);
+    struct {
+        int len;
+        char buf[4096];
+    } kargs;
+    kargs.len = buf_len;
+    long ret = ioctl(fd, SUPERCALL_KPM_LIST, &kargs);
+    if (ret > 0) memcpy(names_buf, kargs.buf, ret);
     return ret;
 }
 
 /**
- * @brief Get module information. 
- * 
- * @param key : superkey
+ * @brief Get module information.
+ *
+ * @param fd: supercall fd
  * @param name : module name
- * @param buf : 
- * @param buf_len : 
+ * @param buf
+ * @param buf_len
  * @return long : The length of result string if succeed, negative if failed
  */
-static inline long sc_kpm_info(const char *key, const char *name, char *buf, int buf_len)
+static inline long sc_kpm_info(int fd, const char *name, char *buf, int buf_len)
 {
-    if (!key || !key[0]) return -EINVAL;
     if (!buf || buf_len <= 0) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_KPM_INFO), name, buf, buf_len);
+    struct {
+        char name[64];
+        int out_len;
+        char out_buf[4096];
+    } kargs;
+    memset(&kargs, 0, sizeof(kargs));
+    strncpy(kargs.name, name, sizeof(kargs.name) - 1);
+    kargs.out_len = buf_len;
+    long ret = ioctl(fd, SUPERCALL_KPM_INFO, &kargs);
+    if (ret > 0) memcpy(buf, kargs.out_buf, ret > buf_len ? buf_len : ret);
     return ret;
 }
 
 /**
- * @brief Get current superkey
- * 
- * @param key : superkey
- * @param out_key 
- * @param outlen 
- * @return long : 0 if succeed
+ * @brief Write kernel storage
+ *
+ * @param fd: supercall fd
+ * @param gid group id
+ * @param did data id
+ * @param data
+ * @param offset
+ * @param dlen
+ * @return long
  */
-static inline long sc_skey_get(const char *key, char *out_key, int outlen)
+static inline long sc_kstorage_write(int fd, int gid, long did, void *data, int offset, int dlen)
 {
-    if (!key || !key[0]) return -EINVAL;
-    if (outlen < SUPERCALL_KEY_MAX_LEN) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_SKEY_GET), out_key, outlen);
+    struct kstorage_rw_args {
+        int gid;
+        long did;
+        int offset;
+        int dlen;
+        char data[0];
+    };
+    struct kstorage_rw_args *args = static_cast<struct kstorage_rw_args *>(alloca(sizeof(*args) + dlen));
+    if (!args) return -ENOMEM;
+    args->gid = gid;
+    args->did = did;
+    args->offset = offset;
+    args->dlen = dlen;
+    memcpy(args->data, data, dlen);
+    return ioctl(fd, SUPERCALL_KSTORAGE_WRITE, args);
+}
+
+/**
+ * @brief Read kernel storage
+ *
+ * @param fd: supercall fd
+ * @param gid
+ * @param did
+ * @param out_data
+ * @param offset
+ * @param dlen
+ * @return long
+ */
+static inline long sc_kstorage_read(int fd, int gid, long did, void *out_data, int offset, int dlen)
+{
+    struct kstorage_rw_args {
+        int gid;
+        long did;
+        int offset;
+        int dlen;
+        char data[0];
+    };
+    struct kstorage_rw_args *args = static_cast<struct kstorage_rw_args *>(alloca(sizeof(*args) + dlen));
+    if (!args) return -ENOMEM;
+    args->gid = gid;
+    args->did = did;
+    args->offset = offset;
+    args->dlen = dlen;
+    long ret = ioctl(fd, SUPERCALL_KSTORAGE_READ, args);
+    if (ret >= 0) memcpy(out_data, args->data, dlen);
     return ret;
 }
 
 /**
- * @brief Reset current superkey
- * 
- * @param key : superkey
- * @param new_key 
- * @return long : 0 if succeed
+ * @brief List kernel storage IDs
+ *
+ * @param fd: supercall fd
+ * @param gid
+ * @param ids
+ * @param ids_len
+ * @return long numbers of listed ids
  */
-static inline long sc_skey_set(const char *key, const char *new_key)
+static inline long sc_kstorage_list_ids(int fd, int gid, long *ids, int ids_len)
 {
-    if (!key || !key[0]) return -EINVAL;
-    if (!new_key || !new_key[0]) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_SKEY_SET), new_key);
+    struct kstorage_list_args {
+        int gid;
+        int ids_len;
+        long ids[0];
+    };
+    struct kstorage_list_args *args = static_cast<struct kstorage_list_args *>(alloca(sizeof(*args) + ids_len * sizeof(long)));
+    if (!args) return -ENOMEM;
+    args->gid = gid;
+    args->ids_len = ids_len;
+    long ret = ioctl(fd, SUPERCALL_KSTORAGE_LIST_IDS, args);
+    if (ret > 0) memcpy(ids, args->ids, ret * sizeof(long));
     return ret;
 }
 
 /**
- * @brief Whether to enable hash verification for root superkey.
- * 
- * @param key : superkey
- * @param enable 
- * @return long 
+ * @brief Remove kernel storage
+ *
+ * @param fd: supercall fd
+ * @param gid
+ * @param did
+ * @return long
  */
-static inline long sc_skey_root_enable(const char *key, bool enable)
+static inline long sc_kstorage_remove(int fd, int gid, long did)
 {
-    if (!key || !key[0]) return -EINVAL;
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_SKEY_ROOT_ENABLE), (long)enable);
-    return ret;
+    struct {
+        int gid;
+        long did;
+    } args = { gid, did };
+    return ioctl(fd, SUPERCALL_KSTORAGE_REMOVE, &args);
 }
 
 /**
  * @brief Get whether in safe mode
  *
- * @param key
+ * @param fd: supercall fd
  * @return long
  */
-static inline long sc_su_get_safemode(const char *key)
+static inline long sc_su_get_safemode(int fd)
 {
-    if (!key || !key[0]) return -EINVAL;
-    return syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_SU_GET_SAFEMODE));
+    return ioctl(fd, SUPERCALL_SU_GET_SAFEMODE, 0);
 }
 
-
-static inline long sc_bootlog(const char *key)
+/**
+ * @brief Load APatch package_config from /data/adb/ap/package_config
+ *
+ * @param fd: supercall fd
+ * @return long : number of entries loaded if succeed, negative value if failed
+ */
+static inline long sc_ap_load_package_config(int fd)
 {
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_BOOTLOG));
-    return ret;
+    return ioctl(fd, SUPERCALL_AP_LOAD_PACKAGE_CONFIG, 0);
 }
 
-static inline long sc_panic(const char *key)
+static inline long sc_bootlog(int fd)
 {
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_PANIC));
-    return ret;
+    return ioctl(fd, SUPERCALL_BOOTLOG, 0);
 }
 
-static inline long __sc_test(const char *key, long a1, long a2, long a3)
+static inline long sc_panic(int fd)
 {
-    long ret = syscall(__NR_supercall, key, ver_and_cmd(key, SUPERCALL_TEST), a1, a2, a3);
-    return ret;
+    return ioctl(fd, SUPERCALL_PANIC, 0);
 }
+
+static inline long __sc_test(int fd, long a1, long a2, long a3)
+{
+    return ioctl(fd, SUPERCALL_TEST, 0);
+}
+
+#ifdef ANDROID
+static inline long sc_set_ap_mod_exclude(int fd, uid_t uid, int exclude)
+{
+    if(exclude) {
+        return sc_kstorage_write(fd, KSTORAGE_EXCLUDE_LIST_GROUP, uid, &exclude, 0, sizeof(exclude));
+    } else {
+        return sc_kstorage_remove(fd, KSTORAGE_EXCLUDE_LIST_GROUP, uid);
+    }
+}
+
+static inline int sc_get_ap_mod_exclude(int fd, uid_t uid)
+{
+    int exclude = 0;
+    int rc = sc_kstorage_read(fd, KSTORAGE_EXCLUDE_LIST_GROUP, uid, &exclude, 0, sizeof(exclude));
+    if (rc < 0) return 0;
+    return exclude;
+}
+
+static inline int sc_list_ap_mod_exclude(int fd, uid_t *uids, int uids_len)
+{
+    if(uids_len < 0 || uids_len > 512) return -E2BIG;
+    long ids[uids_len];
+    int rc = sc_kstorage_list_ids(fd, KSTORAGE_EXCLUDE_LIST_GROUP, ids, uids_len);
+    if (rc < 0) return 0;
+    for(int i = 0; i < rc; i ++) {
+        uids[i] = (uid_t)ids[i];
+    }
+    return rc;
+}
+#endif
 
 #endif

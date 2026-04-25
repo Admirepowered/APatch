@@ -3,7 +3,6 @@ use std::fs::{Permissions, set_permissions};
 #[cfg(unix)]
 use std::os::unix::prelude::PermissionsExt;
 use std::{
-    ffi::CString,
     fs::{File, OpenOptions, create_dir_all, metadata},
     io::{ErrorKind::AlreadyExists, Write},
     path::Path,
@@ -13,7 +12,7 @@ use std::{
 use anyhow::{Context, Error, Ok, Result, bail};
 use log::{info, warn};
 
-use crate::{defs, supercall::sc_su_get_safemode};
+use crate::{defs, supercall};
 
 pub fn ensure_file_exists<T: AsRef<Path>>(file: T) -> Result<()> {
     match File::options().write(true).create_new(true).open(&file) {
@@ -68,7 +67,7 @@ pub fn run_command(
     let child = command_builder.spawn()?;
     Ok(child)
 }
-pub fn is_safe_mode(superkey: Option<String>) -> bool {
+pub fn is_safe_mode(fd: i32) -> bool {
     let safemode = getprop("persist.sys.safemode")
         .filter(|prop| prop == "1")
         .is_some()
@@ -79,16 +78,11 @@ pub fn is_safe_mode(superkey: Option<String>) -> bool {
     if safemode {
         return true;
     }
-    let safemode = superkey
-        .as_ref()
-        .and_then(|key_str| CString::new(key_str.as_str()).ok())
-        .map_or_else(
-            || {
-                warn!("[is_safe_mode] No valid superkey provided, assuming safemode as false.");
-                false
-            },
-            |cstr| sc_su_get_safemode(&cstr) == 1,
-        );
+    if fd < 0 {
+        warn!("[is_safe_mode] Invalid fd, assuming safemode as false.");
+        return false;
+    }
+    let safemode = supercall::sc_su_get_safemode(fd) == 1;
     info!("kernel_safemode: {}", safemode);
     safemode
 }

@@ -18,9 +18,9 @@ using namespace lsplant;
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 #define LOGV(...) __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, __VA_ARGS__)
 
-void ensureSuperKeyNonNull(jstring super_key_jstr) {
-    if (!super_key_jstr) [[unlikely]] {
-        LOGE("[%s] Super Key is null!", __PRETTY_FUNCTION__);
+void ensureFdValid(jint fd) {
+    if (fd < 0) [[unlikely]] {
+        LOGE("[%s] Invalid supercall fd: %d", __PRETTY_FUNCTION__, fd);
         abort();
     }
 }
